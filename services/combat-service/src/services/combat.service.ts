@@ -1,21 +1,21 @@
-import { Request, Response } from 'express';
-import prisma from '../db/prisma';
-import { 
+import { Request, Response } from "express";
+import prisma from "../db/prisma";
+import {
   getCharacterWithItems,
   updateCharacterHealth,
   transferItemBetweenCharacters,
   getRandomItemFromCharacter,
   syncCharacter,
-  getUserCharacters  
-} from './character.sync';
-import { v4 as uuidv4 } from 'uuid';
-import { notifyCharacterService } from './notification.service';
+  getUserCharacters,
+} from "./character.sync";
+import { v4 as uuidv4 } from "uuid";
+import { notifyCharacterService } from "./notification.service";
 
-const DUEL_TIMEOUT_MS = 5 * 60 * 1000; 
-const TURN_TIMEOUT_MS = 30 * 1000; 
+const DUEL_TIMEOUT_MS = 5 * 60 * 1000;
+const TURN_TIMEOUT_MS = 30 * 1000;
 const ATTACK_COOLDOWN_MS = 1000;
-const CAST_COOLDOWN_MS = 2000; 
-const HEAL_COOLDOWN_MS = 2000; 
+const CAST_COOLDOWN_MS = 2000;
+const HEAL_COOLDOWN_MS = 2000;
 
 interface DuelResult {
   duel: any;
@@ -27,13 +27,13 @@ interface DuelResult {
     opponentHealth: number;
   };
   isFinished: boolean;
-  winner?: string | null;   
+  winner?: string | null;
   loser?: string | null;
 }
 
 export const checkDuelTimeout = async (duelId: string): Promise<boolean> => {
   const duel = await prisma.duel.findUnique({
-    where: { id: duelId }
+    where: { id: duelId },
   });
 
   if (!duel) return false;
@@ -41,15 +41,15 @@ export const checkDuelTimeout = async (duelId: string): Promise<boolean> => {
   const now = new Date();
   const duelDuration = now.getTime() - duel.startedAt.getTime();
 
-  if (duelDuration > DUEL_TIMEOUT_MS && duel.status === 'ACTIVE') {
+  if (duelDuration > DUEL_TIMEOUT_MS && duel.status === "ACTIVE") {
     await prisma.duel.update({
       where: { id: duelId },
       data: {
-        status: 'DRAW',
+        status: "DRAW",
         finishedAt: now,
         winnerId: null,
-        loserId: null
-      }
+        loserId: null,
+      },
     });
 
     console.info(`🤝 Duel ${duelId} ended as DRAW (5min timeout)`);
@@ -60,82 +60,108 @@ export const checkDuelTimeout = async (duelId: string): Promise<boolean> => {
 };
 
 export const initiateDuel = async (
-  challengerUserId: string, 
+  challengerUserId: string,
   opponentCharacterId: string,
-  token?: string 
+  token?: string
 ): Promise<any> => {
   try {
-    const challengerCharacters = await getUserCharacters(challengerUserId, token);
+    const challengerCharacters = await getUserCharacters(
+      challengerUserId,
+      token
+    );
 
     if (challengerCharacters.length === 0) {
-      throw new Error('Challenger has no characters');
+      throw new Error("Challenger has no characters");
     }
 
-    const challengerCharacterId = challengerCharacters[0].id;
+    const challengerCharacterId = String(challengerCharacters[0].id);
+
     console.log(`Challenger Character ID: ${challengerCharacterId}`);
     await syncCharacter(challengerCharacterId, token);
     await syncCharacter(opponentCharacterId, token);
 
-    const opponentCharacter = await getCharacterWithItems(opponentCharacterId, token);
+    const opponentCharacter = await getCharacterWithItems(
+      opponentCharacterId,
+      token
+    );
+    console.log(opponentCharacter);
 
+    const opponentId = String(opponentCharacterId); 
     if (!opponentCharacter) {
-      throw new Error('Opponent character not found');
+      throw new Error("Opponent character not found");
     }
 
     const existingDuel = await prisma.duel.findFirst({
       where: {
         OR: [
-          { challengerId: challengerCharacterId, status: { in: ['PENDING', 'ACTIVE'] } },
-          { opponentId: challengerCharacterId, status: { in: ['PENDING', 'ACTIVE'] } },
-          { challengerId: opponentCharacterId, status: { in: ['PENDING', 'ACTIVE'] } },
-          { opponentId: opponentCharacterId, status: { in: ['PENDING', 'ACTIVE'] } }
-        ]
-      }
+          {
+            challengerId: challengerCharacterId,
+            status: { in: ["PENDING", "ACTIVE"] },
+          },
+          {
+            opponentId: challengerCharacterId,
+            status: { in: ["PENDING", "ACTIVE"] },
+          },
+          {
+            challengerId: opponentId,
+            status: { in: ["PENDING", "ACTIVE"] },
+          },
+          {
+            opponentId: opponentId,
+            status: { in: ["PENDING", "ACTIVE"] },
+          },
+        ],
+      },
     });
 
     if (existingDuel) {
-      throw new Error('One or both characters are already in a duel');
+      throw new Error("One or both characters are already in a duel");
     }
 
-    if (challengerCharacterId === opponentCharacterId) {
-      throw new Error('Cannot duel against yourself');
+    if (challengerCharacterId === opponentId) {
+      throw new Error("Cannot duel against yourself");
     }
 
     const duel = await prisma.duel.create({
       data: {
         id: uuidv4(),
         challengerId: challengerCharacterId,
-        opponentId: opponentCharacterId,
-        status: 'PENDING',
+        opponentId: opponentId,
+        status: "PENDING",
         startedAt: new Date(),
         challengerHealth: challengerCharacters[0].health,
         opponentHealth: opponentCharacter.health,
         currentTurn: challengerCharacterId,
         lastActionAt: new Date(),
-        turnExpiresAt: new Date(Date.now() + TURN_TIMEOUT_MS)
-      }
+        turnExpiresAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+      },
     });
 
-    console.info(`Duel ${duel.id} created between ${challengerCharacterId} and ${opponentCharacterId}`);
+    console.info(
+      `Duel ${duel.id} created between ${challengerCharacterId} and ${opponentCharacterId}`
+    );
     return duel;
   } catch (error: any) {
-    console.error('Error initiating duel:', error);
+    console.error("Error initiating duel:", error);
     throw error;
   }
 };
 
-const canPerformAction = (lastActionAt: Date | null, actionType: string): boolean => {
-  if (!lastActionAt) return true;  // DODATO: Provera za null
+const canPerformAction = (
+  lastActionAt: Date | null,
+  actionType: string
+): boolean => {
+  if (!lastActionAt) return true;
   const now = new Date();
   const timeSinceLastAction = now.getTime() - lastActionAt.getTime();
-  
+
   switch (actionType) {
-    case 'ATTACK':
+    case "ATTACK":
       return timeSinceLastAction >= ATTACK_COOLDOWN_MS;
-    case 'CAST':
+    case "CAST":
       return timeSinceLastAction >= CAST_COOLDOWN_MS;
-    case 'HEAL':
-      return timeSinceLastAction >= HEAL_COOLDOWN_MS; 
+    case "HEAL":
+      return timeSinceLastAction >= HEAL_COOLDOWN_MS;
     default:
       return true;
   }
@@ -153,75 +179,86 @@ const calculateHealAmount = (character: any): number => {
   return character.faith || 0;
 };
 
-export const performAttack = async (duelId: string, characterId: string): Promise<DuelResult> => {
-  return await performAction(duelId, characterId, 'ATTACK');
+export const performAttack = async (
+  duelId: string,
+  characterId: string
+): Promise<DuelResult> => {
+  return await performAction(duelId, characterId, "ATTACK");
 };
 
-export const performCast = async (duelId: string, characterId: string): Promise<DuelResult> => {
-  return await performAction(duelId, characterId, 'CAST');
+export const performCast = async (
+  duelId: string,
+  characterId: string
+): Promise<DuelResult> => {
+  return await performAction(duelId, characterId, "CAST");
 };
 
-export const performHeal = async (duelId: string, characterId: string): Promise<DuelResult> => {
-  return await performAction(duelId, characterId, 'HEAL');
+export const performHeal = async (
+  duelId: string,
+  characterId: string
+): Promise<DuelResult> => {
+  return await performAction(duelId, characterId, "HEAL");
 };
 
 const performAction = async (
-  duelId: string, 
-  characterId: string, 
+  duelId: string,
+  characterId: string,
   actionType: string
 ): Promise<DuelResult> => {
   await checkDuelTimeout(duelId);
 
   const duel = await prisma.duel.findUnique({
-    where: { id: duelId }
+    where: { id: duelId },
   });
 
   if (!duel) {
-    throw new Error('Duel not found');
+    throw new Error("Duel not found");
   }
-
-  if (duel.status !== 'ACTIVE' && duel.status !== 'PENDING') {
+  console.log(duelId, characterId, actionType);
+  if (duel.status !== "ACTIVE" && duel.status !== "PENDING") {
     throw new Error(`Duel is ${duel.status.toLowerCase()}`);
   }
 
   if (duel.challengerId !== characterId && duel.opponentId !== characterId) {
-    throw new Error('Character is not a participant in this duel');
+    throw new Error("Character is not a participant in this duel");
   }
 
   if (duel.currentTurn !== characterId) {
-    throw new Error('Not your turn');
+    throw new Error("Not your turn");
   }
 
   if (duel.turnExpiresAt && new Date() > duel.turnExpiresAt) {
-    const nextTurn = duel.challengerId === characterId ? duel.opponentId : duel.challengerId;
+    const nextTurn =
+      duel.challengerId === characterId ? duel.opponentId : duel.challengerId;
     await prisma.duel.update({
       where: { id: duelId },
       data: {
         currentTurn: nextTurn,
-        turnExpiresAt: new Date(Date.now() + TURN_TIMEOUT_MS)
-      }
+        turnExpiresAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+      },
     });
-    throw new Error('Turn has expired. Next player\'s turn.');
+    throw new Error("Turn has expired. Next player's turn.");
   }
 
   if (!canPerformAction(duel.lastActionAt, actionType)) {
-    throw new Error('Action is on cooldown');
+    throw new Error("Action is on cooldown");
   }
 
-  if (duel.status === 'PENDING') {
+  if (duel.status === "PENDING") {
     await prisma.duel.update({
       where: { id: duelId },
-      data: { status: 'ACTIVE' }
+      data: { status: "ACTIVE" },
     });
   }
 
-  const targetCharacterId = duel.challengerId === characterId ? duel.opponentId : duel.challengerId;
-  
+  const targetCharacterId =
+    duel.challengerId === characterId ? duel.opponentId : duel.challengerId;
+
   const character = await getCharacterWithItems(characterId);
   const targetCharacter = await getCharacterWithItems(targetCharacterId);
 
   if (!character || !targetCharacter) {
-    throw new Error('Character data not found');
+    throw new Error("Character data not found");
   }
 
   let damage = 0;
@@ -230,7 +267,7 @@ const performAction = async (
   let newOpponentHealth = duel.opponentHealth;
 
   switch (actionType) {
-    case 'ATTACK':
+    case "ATTACK":
       damage = calculateAttackDamage(character);
       if (duel.challengerId === characterId) {
         newOpponentHealth = Math.max(0, duel.opponentHealth - damage);
@@ -239,7 +276,7 @@ const performAction = async (
       }
       break;
 
-    case 'CAST':
+    case "CAST":
       damage = calculateSpellDamage(character);
       if (duel.challengerId === characterId) {
         newOpponentHealth = Math.max(0, duel.opponentHealth - damage);
@@ -248,12 +285,18 @@ const performAction = async (
       }
       break;
 
-    case 'HEAL':
+    case "HEAL":
       healAmount = calculateHealAmount(character);
       if (duel.challengerId === characterId) {
-        newChallengerHealth = Math.min(character.maxHealth || 100, duel.challengerHealth + healAmount);
+        newChallengerHealth = Math.min(
+          character.maxHealth || 100,
+          duel.challengerHealth + healAmount
+        );
       } else {
-        newOpponentHealth = Math.min(targetCharacter.maxHealth || 100, duel.opponentHealth + healAmount);
+        newOpponentHealth = Math.min(
+          targetCharacter.maxHealth || 100,
+          duel.opponentHealth + healAmount
+        );
       }
       break;
   }
@@ -266,11 +309,11 @@ const performAction = async (
       action: actionType,
       damage: damage > 0 ? damage : null,
       heal: healAmount > 0 ? healAmount : null,
-      timestamp: new Date()
-    }
+      timestamp: new Date(),
+    },
   });
 
-  if (actionType === 'HEAL') {
+  if (actionType === "HEAL") {
     if (duel.challengerId === characterId) {
       await updateCharacterHealth(characterId, newChallengerHealth);
     } else {
@@ -291,10 +334,10 @@ const performAction = async (
 
   if (newChallengerHealth <= 0 || newOpponentHealth <= 0) {
     isFinished = true;
-    finalStatus = 'FINISHED';
-    
+    finalStatus = "FINISHED";
+
     if (newChallengerHealth <= 0 && newOpponentHealth <= 0) {
-      winner = null; 
+      winner = null;
     } else if (newChallengerHealth <= 0) {
       winner = duel.opponentId;
       loser = duel.challengerId;
@@ -309,16 +352,16 @@ const performAction = async (
         if (itemToTransfer) {
           await transferItemBetweenCharacters(loser, winner, itemToTransfer.id);
           await notifyCharacterService({
-            type: 'ITEM_TRANSFER',
+            type: "ITEM_TRANSFER",
             duelId: duelId,
             winnerId: winner,
-            loserId: loser, 
+            loserId: loser,
             itemId: itemToTransfer.id,
-            timestamp: new Date()
+            timestamp: new Date(),
           });
         }
       } catch (error) {
-        console.error('Error transferring item after duel:', error);
+        console.error("Error transferring item after duel:", error);
       }
     }
   }
@@ -329,19 +372,23 @@ const performAction = async (
       challengerHealth: newChallengerHealth,
       opponentHealth: newOpponentHealth,
       status: finalStatus,
-      currentTurn: isFinished ? null : (duel.challengerId === characterId ? duel.opponentId : duel.challengerId),
+      currentTurn: isFinished
+        ? null
+        : duel.challengerId === characterId
+        ? duel.opponentId
+        : duel.challengerId,
       lastActionAt: new Date(),
       turnExpiresAt: isFinished ? null : new Date(Date.now() + TURN_TIMEOUT_MS),
       finishedAt: isFinished ? new Date() : null,
       winnerId: winner,
-      loserId: loser
+      loserId: loser,
     },
     include: {
       actions: {
-        orderBy: { timestamp: 'desc' },
-        take: 10
-      }
-    }
+        orderBy: { timestamp: "desc" },
+        take: 10,
+      },
+    },
   });
 
   return {
@@ -351,33 +398,37 @@ const performAction = async (
     healAmount: healAmount > 0 ? healAmount : undefined,
     newHealth: {
       challengerHealth: newChallengerHealth,
-      opponentHealth: newOpponentHealth
+      opponentHealth: newOpponentHealth,
     },
     isFinished,
     winner,
-    loser
+    loser,
   };
 };
 
-export const getDuelById = async (duelId: string, userId: string): Promise<any> => {
+export const getDuelById = async (
+  duelId: string,
+  userId: string
+): Promise<any> => {
   const duel = await prisma.duel.findUnique({
     where: { id: duelId },
     include: {
       actions: {
-        orderBy: { timestamp: 'asc' },
-        take: 50
-      }
-    }
+        orderBy: { timestamp: "asc" },
+        take: 50,
+      },
+    },
   });
 
   if (!duel) {
-    throw new Error('Duel not found');
+    throw new Error("Duel not found");
   }
 
-  const isParticipant = duel.challengerId === userId || duel.opponentId === userId;
+  const isParticipant =
+    duel.challengerId === userId || duel.opponentId === userId;
 
-  if (!isParticipant && userId !== 'GameMaster') {
-    throw new Error('Not authorized to view this duel');
+  if (!isParticipant && userId !== "GameMaster") {
+    throw new Error("Not authorized to view this duel");
   }
 
   return duel;
@@ -390,17 +441,17 @@ export const getUserDuels = async (userId: string): Promise<any[]> => {
     where: {
       OR: [
         { challengerId: { in: userCharacterIds } },
-        { opponentId: { in: userCharacterIds } }
-      ]
+        { opponentId: { in: userCharacterIds } },
+      ],
     },
     include: {
       actions: {
-        orderBy: { timestamp: 'desc' },
-        take: 5
-      }
+        orderBy: { timestamp: "desc" },
+        take: 5,
+      },
     },
-    orderBy: { startedAt: 'desc' },
-    take: 20
+    orderBy: { startedAt: "desc" },
+    take: 20,
   });
 
   return duels;
@@ -408,28 +459,28 @@ export const getUserDuels = async (userId: string): Promise<any[]> => {
 
 export const checkDuelTimeouts = async () => {
   const now = new Date();
-  
+
   const timedOutDuels = await prisma.duel.findMany({
     where: {
-      status: 'ACTIVE',
+      status: "ACTIVE",
       startedAt: {
-        lt: new Date(now.getTime() - DUEL_TIMEOUT_MS)
-      }
-    }
+        lt: new Date(now.getTime() - DUEL_TIMEOUT_MS),
+      },
+    },
   });
 
   for (const duel of timedOutDuels) {
     await prisma.duel.update({
       where: { id: duel.id },
       data: {
-        status: 'DRAW',
-        finishedAt: now
-      }
+        status: "DRAW",
+        finishedAt: now,
+      },
     });
 
     console.info(`🤝 Duel ${duel.id} ended as DRAW (5min timeout)`);
   }
-  
+
   return timedOutDuels.length;
 };
 
@@ -440,8 +491,6 @@ setInterval(async () => {
       console.info(`Checked duel timeouts: ${count} duels ended as DRAW`);
     }
   } catch (error) {
-    console.error('Error checking duel timeouts:', error);
+    console.error("Error checking duel timeouts:", error);
   }
 }, 60000);
-
-

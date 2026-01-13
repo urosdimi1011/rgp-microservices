@@ -148,11 +148,9 @@ export const getCharacterWithItems = async (
         headers: getAuthHeaders(token || String(currentToken)),
       }
     );
-
-    if (response.data.success) {
-      return response.data.data;
+    if (response.data) {
+      return response.data;
     }
-
     throw new Error("Character not found");
   } catch (error: any) {
     console.error(`Error getting character ${characterId}:`, error.message);
