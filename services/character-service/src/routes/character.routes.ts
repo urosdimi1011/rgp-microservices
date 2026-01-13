@@ -42,19 +42,19 @@ router.post("/", authenticate, characterController.createCharacter);
 router.get(
   "/user/:userId",
   authenticate,
-  requireOwnerOrGameMaster(async (req: any) => {
-    const characterId = parseInt(req.params.id);
-    const character = await prisma.character.findUnique({
-      where: { id: characterId },
-      select: { createdBy: true },
-    });
+  // requireOwnerOrGameMaster(async (req: any) => {
+  //   const characterId = parseInt(req.params.id);
+  //   const character = await prisma.character.findUnique({
+  //     where: { id: characterId },
+  //     select: { createdBy: true },
+  //   });
 
-    if (!character) {
-      throw new Error("Character not found");
-    }
+  //   if (!character) {
+  //     throw new Error("Character not found");
+  //   }
 
-    return character.createdBy;
-  }),
+  //   return character.createdBy;
+  // }),
   characterController.getUserCharacters
 );
 

@@ -37,8 +37,8 @@ export const validateDuelParticipation = async (
       });
     }
 
-    const challengerOwner = await getCharacterOwner(duel.challengerId);
-    const opponentOwner = await getCharacterOwner(duel.opponentId);
+    const challengerOwner = await getCharacterOwner(duel.challengerId.toString());
+    const opponentOwner = await getCharacterOwner(duel.opponentId.toString());
 
     const isChallengerOwner = parseInt(challengerOwner) === userId;
     const isOpponentOwner = parseInt(opponentOwner) === userId;

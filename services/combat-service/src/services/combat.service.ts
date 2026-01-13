@@ -113,7 +113,7 @@ export const initiateDuel = async (
         ],
       },
     });
-
+    console.log(existingDuel);
     if (existingDuel) {
       throw new Error("One or both characters are already in a duel");
     }
@@ -218,8 +218,8 @@ const performAction = async (
   if (duel.status !== "ACTIVE" && duel.status !== "PENDING") {
     throw new Error(`Duel is ${duel.status.toLowerCase()}`);
   }
-
-  if (duel.challengerId !== characterId && duel.opponentId !== characterId) {
+  console.log(duel.challengerId,characterId, duel.opponentId);
+  if (duel.challengerId.toString() !== characterId && duel.opponentId.toString() !== characterId) {
     throw new Error("Character is not a participant in this duel");
   }
 

@@ -44,7 +44,6 @@ export const getUserCharacters = async (
 
 export const getAuthHeaders = (token?: string): Record<string, string> => {
   const tokenToUse = token || currentToken;
-    console.log("Using token for auth headers:", tokenToUse);
   if (!tokenToUse) {
     console.warn("No token available for auth headers");
     return {};
@@ -120,7 +119,7 @@ export const syncCharacter = async (
     const response = await axios.get(
       `${CHARACTER_SERVICE_URL}/api/character/${characterId}`,
       {
-        headers: getAuthHeaders(token),
+        headers: getAuthHeaders(token || String(currentToken)),
       }
     );
     if (response.data) {
@@ -142,6 +141,7 @@ export const getCharacterWithItems = async (
   token?: string
 ): Promise<any> => {
   try {
+    console.log(token,currentToken);
     const response = await axios.get(
       `${CHARACTER_SERVICE_URL}/api/character/${characterId}`,
       {
@@ -169,10 +169,6 @@ export const updateCharacterHealth = async (
   newHealth: number
 ): Promise<void> => {
   try {
-    // Ovo je malo komplikovano jer Character Service možda nema direktan endpoint za update health
-    // U realnoj aplikaciji, možda imaš neku notifikaciju ili event sistem
-    // Za sada, samo log-ujemo
-
     console.log(`Character ${characterId} health updated to ${newHealth}`);
 
     await axios.put(
@@ -261,20 +257,13 @@ export const getRandomItemFromCharacter = async (
   }
 };
 
-// Helper funkcije za lokalno čuvanje karaktera
 async function getLocalCharacter(characterId: string): Promise<any | null> {
-  // Ovo implementiraš kad dodaš Prisma model za Character u combat service
-  // Za sada vraćamo null
   return null;
 }
 
-async function saveLocalCharacter(characterData: any): Promise<void> {
-  // Ovo implementiraš kad dodaš Prisma model za Character u combat service
-}
 
-// Cache za karaktere (Redis ili memory cache)
 const characterCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minuta
+const CACHE_TTL = 5 * 60 * 1000; 
 
 export const getCachedCharacter = async (
   characterId: string
