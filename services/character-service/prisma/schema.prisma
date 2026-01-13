@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Character {
+  id               Int      @id @default(autoincrement())
+  name             String   @unique @db.VarChar(100)
+  health           Int      @default(100)
+  mana             Int      @default(100)
+  baseStrength     Int      @default(10) @map("base_strength")
+  baseAgility      Int      @default(10) @map("base_agility")
+  baseIntelligence Int      @default(10) @map("base_intelligence")
+  baseFaith        Int      @default(10) @map("base_faith")
+
+  classId          Int      @map("class_id")
+  class            Class    @relation(fields: [classId], references: [id])
+  
+  createdBy        Int      @map("created_by")
+  
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  
+  items            CharacterItem[]
+
+  @@index([createdBy])  
+
+  @@map("characters")
+}
+
+model Class {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique @db.VarChar(50)
+  description String      @db.Text
+  characters  Character[]
+
+  @@map("classes")
+}
+
+model Item {
+  id                 Int      @id @default(autoincrement())
+  name               String   @unique @db.VarChar(100) 
+  description        String   @db.Text
+  
+  bonusStrength      Int      @default(0) @map("bonus_strength")
+  bonusAgility       Int      @default(0) @map("bonus_agility")
+  bonusIntelligence  Int      @default(0) @map("bonus_intelligence")
+  bonusFaith         Int      @default(0) @map("bonus_faith")
+  
+  createdAt          DateTime @default(now()) @map("created_at")
+  
+  characters         CharacterItem[]
+
+  @@map("items")
+}
+
+
+model CharacterItem {
+  id          Int       @id @default(autoincrement())
+  
+  characterId Int       @map("character_id")
+  itemId      Int       @map("item_id")
+  
+  quantity    Int       @default(1)
+  
+  acquiredAt  DateTime  @default(now()) @map("acquired_at")
+  
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  item        Item      @relation(fields: [itemId], references: [id])
+
+  @@unique([characterId, itemId])
+  @@index([characterId])
+  @@index([itemId])
+  @@map("character_items")
+}

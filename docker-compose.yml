@@ -1,0 +1,152 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: rpg-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - rpg-network
+  account-db:
+    image: postgres:latest
+    container_name: rpg-account-db
+    environment:
+      POSTGRES_DB: account_db
+      POSTGRES_USER: account_user
+      POSTGRES_PASSWORD: account_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - account-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U account_user -d account_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpg-network
+  character-db:
+    image: postgres:latest
+    container_name: rpg-character-db
+    environment:
+      POSTGRES_DB: character_db
+      POSTGRES_USER: character_user
+      POSTGRES_PASSWORD: character_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - character-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U character_user -d character_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpg-network
+  combat-db:
+    image: postgres:latest
+    container_name: rpg-combat-db
+    environment:
+      POSTGRES_DB: combat_db
+      POSTGRES_USER: combat_user
+      POSTGRES_PASSWORD: combat_pass
+    ports:
+      - "5435:5432"
+    volumes:
+      - combat-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U combat_user -d combat_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpg-network
+
+  account-service:
+    build:
+      context: ./services/account-service
+      dockerfile: Dockerfile
+    container_name: rpg-account-service
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT:  ${ACCOUNT_SERVICE_PORT}
+      DATABASE_URL: postgresql://account_user:account_pass@account-db:5432/account_db
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "3001:3001"
+    depends_on:
+      account-db:
+        condition: service_healthy
+    volumes:
+      - ./services/account-service:/app
+      - /app/prisma 
+    command: sh -c "npx prisma db push --skip-generate --accept-data-loss && npx prisma db seed && npm run dev"
+    networks:
+      - rpg-network
+  character-service:
+    build:
+      context: ./services/character-service
+      dockerfile: Dockerfile
+    container_name: rpg-character-service
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${CHARACTER_SERVICE_PORT}
+      DATABASE_URL: postgresql://character_user:character_pass@character-db:5432/character_db
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+        - "3000:3000"
+    depends_on:
+      character-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/character-service:/app
+      - /app/node_modules
+      - /app/prisma
+    command: sh -c "npx prisma db push --skip-generate --accept-data-loss && npx prisma db seed && npm run dev"
+    networks:
+      - rpg-network
+  combat-service:
+    build: ./services/combat-service
+    container_name: rpg-combat-service
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${COMBAT_SERVICE_PORT}
+      DATABASE_URL: postgresql://combat_user:combat_pass@combat-db:5432/combat_db
+      REDIS_HOST:  ${REDIS_HOST}
+      REDIS_PORT:  ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      CHARACTER_SERVICE_URL: ${CHARACTER_SERVICE_URL}
+      INTERNAL_SERVICE_TOKEN: ${JWT_SECRET}
+    ports:
+      - "3002:3002"
+    depends_on:
+      combat-db:
+        condition: service_healthy
+      character-service:
+        condition: service_started
+    volumes:
+    - ./services/combat-service:/app
+    - /app/node_modules
+    - /app/prisma
+    command: sh -c "npx prisma db push --skip-generate --accept-data-loss && npm run dev"
+    networks:
+      - rpg-network
+volumes:
+  account-db-data:
+  redis_data:
+  character-db-data:
+  combat-db-data:
+networks:
+  rpg-network:
+    driver: bridge

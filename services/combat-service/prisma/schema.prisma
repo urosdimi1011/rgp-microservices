@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Duel {
+  id              String   @id @default(uuid())
+  challengerId    String   @map("challenger_id")  // Character ID iz Character Service
+  opponentId      String   @map("opponent_id")    // Character ID iz Character Service
+  status          String   @default("PENDING")    // 'PENDING', 'ACTIVE', 'FINISHED', 'DRAW'
+  
+  challengerHealth Int    @default(100)
+  opponentHealth   Int    @default(100)
+  
+  currentTurn     String?  @map("current_turn")   // Ko je na redu (characterId)
+  turnExpiresAt   DateTime? @map("turn_expires_at")
+  lastActionAt    DateTime? @map("last_action_at")
+  
+  startedAt       DateTime @default(now()) @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+  winnerId        String?  @map("winner_id")
+  loserId         String?  @map("loser_id")
+  
+  actions         DuelAction[]
+  
+  @@map("duels")
+  @@index([challengerId])
+  @@index([opponentId])
+  @@index([status])
+  @@index([startedAt]) 
+}
+
+model DuelAction {
+  id          String   @id @default(uuid())
+  duelId      String   @map("duel_id")
+  characterId String   @map("character_id")
+  action      String   // 'ATTACK', 'CAST', 'HEAL'
+  damage      Int?     // Koliko damage je naneto
+  heal        Int?     // Koliko je heal-ovano
+  timestamp   DateTime @default(now())
+  
+  duel        Duel     @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  
+  @@map("duel_actions")
+  @@index([duelId])
+  @@index([characterId])
+  @@index([timestamp])
+}

@@ -1,0 +1,27 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+enum Role {
+  User
+  GameMaster
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique @db.VarChar(50)
+  email         String   @unique @db.VarChar(100)
+  passwordHash  String   @map("password_hash") @db.Text
+  role          Role     @default(User)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([username])
+  @@index([email])
+  @@map("users")
+}
