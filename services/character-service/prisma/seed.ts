@@ -202,8 +202,11 @@ async function main() {
     where: { name: "Warrior" },
   });
   const mageClass = await prisma.class.findUnique({ where: { name: "Mage" } });
+  const rogueClass = await prisma.class.findUnique({ where: { name: "Rogue" } });
+  const clericClass = await prisma.class.findUnique({ where: { name: "Cleric" } });
+  const rangerClass = await prisma.class.findUnique({ where: { name: "Ranger" } });
 
-  if (warriorClass && mageClass) {
+  if (warriorClass && mageClass && rogueClass && clericClass && rangerClass) {
     const testCharacters = [
       {
         name: "Aragorn",
@@ -293,6 +296,50 @@ async function main() {
         classId: mageClass.id,
         createdBy: 6,
       },
+      {
+        name: "Legolas",
+        health: 100,
+        mana: 100,
+        baseStrength: 8,
+        baseAgility: 18,
+        baseIntelligence: 12,
+        baseFaith: 8,
+        classId: rangerClass.id,
+        createdBy: 7,
+      },
+      {
+        name: "Shadow",
+        health: 90,
+        mana: 70,
+        baseStrength: 9,
+        baseAgility: 20,
+        baseIntelligence: 10,
+        baseFaith: 5,
+        classId: rogueClass.id,
+        createdBy: 8,
+      },
+      {
+        name: "Priest",
+        health: 110,
+        mana: 150,
+        baseStrength: 8,
+        baseAgility: 7,
+        baseIntelligence: 10,
+        baseFaith: 20,
+        classId: clericClass.id,
+        createdBy: 9,
+      },
+      {
+        name: "Brute",
+        health: 180,
+        mana: 50,
+        baseStrength: 20,
+        baseAgility: 6,
+        baseIntelligence: 4,
+        baseFaith: 5,
+        classId: warriorClass.id,
+        createdBy: 10,
+      },
     ];
 
     for (const char of testCharacters) {
@@ -308,49 +355,88 @@ async function main() {
     }
   }
 
-  const aragorn = await prisma.character.findUnique({
-    where: { name: "Aragorn" },
-  });
-  const ironSword = await prisma.item.findUnique({
-    where: { name: "Iron Sword" },
-  });
-  const plateArmor = await prisma.item.findUnique({
-    where: { name: "Plate Armor" },
-  });
-
-  if (aragorn && ironSword) {
-    await prisma.characterItem.upsert({
-      where: {
-        characterId_itemId: {
-          characterId: aragorn.id,
-          itemId: ironSword.id,
-        },
-      },
-      update: {},
-      create: {
-        characterId: aragorn.id,
-        itemId: ironSword.id,
-        quantity: 1,
-      },
+  const assignItemToCharacter = async (characterName: string, itemName: string, quantity: number = 1) => {
+    const character = await prisma.character.findUnique({
+      where: { name: characterName },
     });
-  }
-
-  if (aragorn && plateArmor) {
-    await prisma.characterItem.upsert({
-      where: {
-        characterId_itemId: {
-          characterId: aragorn.id,
-          itemId: plateArmor.id,
-        },
-      },
-      update: {},
-      create: {
-        characterId: aragorn.id,
-        itemId: plateArmor.id,
-        quantity: 1,
-      },
+    const item = await prisma.item.findUnique({
+      where: { name: itemName },
     });
-  }
+
+    if (character && item) {
+      await prisma.characterItem.upsert({
+        where: {
+          characterId_itemId: {
+            characterId: character.id,
+            itemId: item.id,
+          },
+        },
+        update: { quantity },
+        create: {
+          characterId: character.id,
+          itemId: item.id,
+          quantity,
+        },
+      });
+      console.log(`✅ Dodeljen ${itemName} karakteru ${characterName}`);
+    } else {
+      console.log(`❌ Karakter ${characterName} ili item ${itemName} nije pronađen`);
+    }
+  };
+
+  await assignItemToCharacter("Aragorn", "Iron Sword");
+  await assignItemToCharacter("Aragorn", "Plate Armor");
+  await assignItemToCharacter("Aragorn", "Ring of Strength");
+  
+  await assignItemToCharacter("Gandalf", "Wizard Staff");
+  await assignItemToCharacter("Gandalf", "Mage Robes");
+  await assignItemToCharacter("Gandalf", "Amulet of Wisdom");
+  await assignItemToCharacter("Gandalf", "Mana Potion", 3);
+  
+  await assignItemToCharacter("Mika", "Wizard Staff");
+  await assignItemToCharacter("Mika", "Mage Robes");
+  await assignItemToCharacter("Mika", "Health Potion", 2);
+  
+  await assignItemToCharacter("Pera", "Wizard Staff");
+  await assignItemToCharacter("Pera", "Amulet of Wisdom");
+  
+  await assignItemToCharacter("Zika", "Wizard Staff");
+  await assignItemToCharacter("Zika", "Health Potion", 1);
+  await assignItemToCharacter("Zika", "Mana Potion", 2);
+  
+  await assignItemToCharacter("Lika", "Wizard Staff");
+  await assignItemToCharacter("Lika", "Mage Robes");
+  await assignItemToCharacter("Lika", "Health Potion", 1);
+  
+  await assignItemToCharacter("Laki", "Wizard Staff");
+  await assignItemToCharacter("Laki", "Amulet of Wisdom");
+  await assignItemToCharacter("Laki", "Mana Potion", 2);
+  
+  await assignItemToCharacter("Jovan", "Wizard Staff");
+  await assignItemToCharacter("Jovan", "Health Potion", 2);
+  await assignItemToCharacter("Jovan", "Mana Potion", 1);
+  
+  await assignItemToCharacter("Legolas", "Longbow");
+  await assignItemToCharacter("Legolas", "Leather Armor");
+  await assignItemToCharacter("Legolas", "Boots of Swiftness");
+  await assignItemToCharacter("Legolas", "Health Potion", 2);
+  
+  await assignItemToCharacter("Shadow", "Assassin Dagger");
+  await assignItemToCharacter("Shadow", "Leather Armor");
+  await assignItemToCharacter("Shadow", "Boots of Swiftness");
+  await assignItemToCharacter("Shadow", "Health Potion", 1);
+  
+  await assignItemToCharacter("Priest", "Holy Scepter");
+  await assignItemToCharacter("Priest", "Cleric Vestments");
+  await assignItemToCharacter("Priest", "Holy Symbol");
+  await assignItemToCharacter("Priest", "Health Potion", 4);
+  
+  await assignItemToCharacter("Brute", "Steel Greatsword");
+  await assignItemToCharacter("Brute", "Plate Armor");
+  await assignItemToCharacter("Brute", "Ring of Strength");
+  await assignItemToCharacter("Brute", "Health Potion", 3);
+
+  console.log("✅ Seeding završen! Karakterima su dodeljeni itemi.");
 }
 
 main()

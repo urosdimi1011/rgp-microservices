@@ -6,6 +6,7 @@ import itemRoutes from './routes/items.routes';
 
 dotenv.config();
 const app = express();
+app.use(express.json());
 const PORT = process.env.PORT || 3002;
 
 app.use('/api/character', characterRoutes);

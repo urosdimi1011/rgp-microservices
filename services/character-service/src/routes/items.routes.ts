@@ -6,11 +6,12 @@ const router = Router();
 
 router.get('/', authenticate,requireGameMaster, itemController.getAllItems);
 
+router.post('/grant', authenticate, itemController.grantItem);
+router.post('/gift', authenticate, itemController.giftItem);
+
 router.get('/:id',authenticate, itemController.getItemById);
 
 router.post('/', authenticate, itemController.createItem);
 
-router.post('/grant', authenticate, itemController.grantItem);
-router.post('/gift', authenticate, itemController.giftItem);
 
 export default router;

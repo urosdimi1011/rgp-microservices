@@ -80,6 +80,7 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
   return {
     "Authorization": `Bearer ${tokenToUse}`,
+    "Content-Type": "application/json",
     "x-service-key": String(process.env.SERVICE_SECRET_KEY),
   };
 };
