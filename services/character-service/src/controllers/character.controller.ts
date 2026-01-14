@@ -83,15 +83,7 @@ export const getCharacterById = async (req: AuthRequest, res: Response) => {
 
     if (cachedData) {
       const character = JSON.parse(cachedData);
-      if (
-        req.user!.role !== 'GameMaster' && 
-        character.createdBy !== req.user!.userId
-      ) {
-        return res.status(403).json({ 
-          error: 'Forbidden: You can only view your own characters' 
-        });
-      }
-
+    
       return res.json(character);
     }
 
@@ -109,15 +101,6 @@ export const getCharacterById = async (req: AuthRequest, res: Response) => {
 
     if (!character) {
       return res.status(404).json({ error: 'Character not found' });
-    }
-
-    if (
-      req.user!.role !== 'GameMaster' && 
-      character.createdBy !== req.user!.userId
-    ) {
-      return res.status(403).json({ 
-        error: 'Forbidden: You can only view your own characters' 
-      });
     }
 
     const stats = calculateCharacterStats(character);
@@ -187,8 +170,7 @@ export const handleCombatNotification = async (req: AuthRequest, res: Response) 
     switch (notification.type) {
       case 'ITEM_TRANSFER':
         if (notification.winnerId && notification.loserId && notification.itemId) {
-          console.log(`  ↪ Item transfer: ${notification.itemId} from character ${notification.loserId} to ${notification.winnerId}`);
-          
+          console.log(`Item transfer: ${notification.itemId} from character ${notification.loserId} to ${notification.winnerId}`);
           await transferItemAfterDuel(
             notification.loserId,
             notification.winnerId,
@@ -198,10 +180,9 @@ export const handleCombatNotification = async (req: AuthRequest, res: Response) 
         break;
         
       case 'DUEL_FINISHED':
-        console.log(`  ↪ Duel ${notification.duelId} finished`);
+        console.log(`Duel ${notification.duelId} finished`);
         break;
     }
-
     res.json({
       success: true,
       message: 'Notification processed',
@@ -209,7 +190,6 @@ export const handleCombatNotification = async (req: AuthRequest, res: Response) 
     });
 
   } catch (error: any) {
-    console.error('Error processing combat notification:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to process notification'

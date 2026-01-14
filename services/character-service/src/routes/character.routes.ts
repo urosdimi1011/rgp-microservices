@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   authenticate,
+  authenticateService,
   requireGameMaster,
   requireOwnerOrGameMaster,
 } from "../middleware/auth.middleware";
@@ -35,6 +36,16 @@ router.get(
   }),
   characterController.getCharacterById
 );
+
+
+router.get(
+  "/internal/:id",
+  authenticate,
+  authenticateService,
+  characterController.getCharacterById
+);
+
+
 router.post("/notifications/combat", handleCombatNotification);
 
 router.post("/", authenticate, characterController.createCharacter);
@@ -42,6 +53,8 @@ router.post("/", authenticate, characterController.createCharacter);
 router.get(
   "/user/:userId",
   authenticate,
+  characterController.getUserCharacters
+);
   // requireOwnerOrGameMaster(async (req: any) => {
   //   const characterId = parseInt(req.params.id);
   //   const character = await prisma.character.findUnique({
@@ -55,7 +68,4 @@ router.get(
 
   //   return character.createdBy;
   // }),
-  characterController.getUserCharacters
-);
-
 export default router;

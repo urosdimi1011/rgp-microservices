@@ -96,6 +96,7 @@ services:
       dockerfile: Dockerfile
     container_name: rpg-character-service
     environment:
+      SERVICE_SECRET_KEY: 1283701927830129738109237jhdasoidh
       NODE_ENV: ${NODE_ENV}
       PORT: ${CHARACTER_SERVICE_PORT}
       DATABASE_URL: postgresql://character_user:character_pass@character-db:5432/character_db
@@ -120,6 +121,7 @@ services:
     build: ./services/combat-service
     container_name: rpg-combat-service
     environment:
+      SERVICE_SECRET_KEY: 1283701927830129738109237jhdasoidh
       NODE_ENV: ${NODE_ENV}
       PORT: ${COMBAT_SERVICE_PORT}
       DATABASE_URL: postgresql://combat_user:combat_pass@combat-db:5432/combat_db

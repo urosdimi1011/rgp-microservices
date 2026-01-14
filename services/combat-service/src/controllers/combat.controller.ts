@@ -9,6 +9,7 @@ import {
   checkDuelTimeout
 } from '../services/combat.service';
 import { syncCharacter, setCurrentToken } from '../services/character.sync';
+import { logger } from '../utils/logging';
 
 interface AuthRequest extends Request {
   user?: {
@@ -21,22 +22,34 @@ interface AuthRequest extends Request {
 
 export const challengeCharacter = async (req: AuthRequest, res: Response) => {
   try {
-    const { opponentCharacterId } = req.body;
-    const challengerUserId = req.user!.userId;
+    const { challengerCharacterId, opponentCharacterId } = req.body;
+    const userId = req.user!.userId;
     const token = req.user!.token;
-    if (!opponentCharacterId) {
+
+    if (!challengerCharacterId || !opponentCharacterId) {
       return res.status(400).json({
         success: false,
-        error: 'Opponent character ID is required'
+        error: 'Both challenger and opponent character IDs are required'
       });
     }
+
     if (token) {
       setCurrentToken(token);
     }
-    await syncCharacter(opponentCharacterId, token);    
-    const duel = await initiateDuel(challengerUserId, opponentCharacterId,token);
+
+    const challengerChar = await syncCharacter(challengerCharacterId, token);
+    const opponentChar = await syncCharacter(opponentCharacterId, token);
+
+    if (challengerChar.createdBy !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only initiate duels with your own characters'
+      });
+    }
+
+    const duel = await initiateDuel(challengerCharacterId, opponentCharacterId, token);
     
-    console.log(`Duel initiated: ${duel.id} between ${challengerUserId} and ${opponentCharacterId}`);
+    logger.info(`Duel initiated: ${duel.id} between characters ${challengerCharacterId} and ${opponentCharacterId}`);
     
     res.status(201).json({
       success: true,
@@ -44,7 +57,7 @@ export const challengeCharacter = async (req: AuthRequest, res: Response) => {
       message: 'Duel challenge sent'
     });
   } catch (error: any) {
-    console.error('Challenge error:', error);
+    logger.error('Challenge error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to initiate duel'
@@ -74,11 +87,12 @@ export const getDuelStatus = async (req: AuthRequest, res: Response) => {
 export const attackAction = async (req: AuthRequest, res: Response) => {
   try {
     const { duelId } = req.params;
-    const characterId = req.user!.userId;
+    const characterId = req.body.characterId;
+        const token = String(req.user!.token);
+
+    const result = await performAttack(duelId, characterId,token);
     
-    const result = await performAttack(duelId, characterId);
-    
-    console.log(`Attack performed in duel ${duelId} by ${characterId}`);
+    logger.info(`Attack performed in duel ${duelId} by ${characterId}`);
     
     res.json({
       success: true,
@@ -97,11 +111,12 @@ export const attackAction = async (req: AuthRequest, res: Response) => {
 export const castAction = async (req: AuthRequest, res: Response) => {
   try {
     const { duelId } = req.params;
-    const characterId = req.user!.userId;
+    const characterId = req.body.characterId;
+    const token = String(req.user!.token);
+
+    const result = await performCast(duelId, characterId,token);
     
-    const result = await performCast(duelId, characterId);
-    
-    console.log(`Cast performed in duel ${duelId} by ${characterId}`);
+    logger.info(`Cast performed in duel ${duelId} by ${characterId}`);
     
     res.json({
       success: true,
@@ -120,11 +135,11 @@ export const castAction = async (req: AuthRequest, res: Response) => {
 export const healAction = async (req: AuthRequest, res: Response) => {
   try {
     const { duelId } = req.params;
-    const characterId = req.user!.userId;
+    const characterId = req.body.characterId;
+   const token = String(req.user!.token);
+    const result = await performHeal(duelId, characterId,token);
     
-    const result = await performHeal(duelId, characterId);
-    
-    console.log(`Heal performed in duel ${duelId} by ${characterId}`);
+    logger.info(`Heal performed in duel ${duelId} by ${characterId}`);
     
     res.json({
       success: true,

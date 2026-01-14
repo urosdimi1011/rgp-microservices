@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { logger } from '../utils/logging';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -18,6 +19,7 @@ export const authenticate = (
   next: NextFunction
 ) => {
   try {
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -63,17 +65,24 @@ export const requireGameMaster = (
 
 export const requireOwnerOrGameMaster = (getOwnerId: (req: AuthRequest) => number | Promise<number>) => {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if ((req as any).isServiceCall) {
+      logger.info('Bypassing ownership check for service call');
+      return next();
+    }
+
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
-
     if (req.user.role === 'GameMaster') {
       return next();
     }
 
     try {
       const ownerId = await getOwnerId(req);
-      
+      logger.info({
+        userId : req.user.userId ,
+        ownerId
+      })
       if (req.user.userId !== ownerId) {
         return res.status(403).json({ 
           error: 'Forbidden: You can only access your own resources' 
@@ -85,4 +94,22 @@ export const requireOwnerOrGameMaster = (getOwnerId: (req: AuthRequest) => numbe
       next(error);
     }
   };
+};
+
+
+export const authenticateService = (req: Request, res: Response, next: NextFunction) => {
+  const serviceKey = req.headers['x-service-key'] as string;
+  logger.info('Service auth check', {
+    hasServiceKey: !!serviceKey,
+    serviceKeyValue: serviceKey, 
+    expectedKey: process.env.SERVICE_SECRET_KEY
+  });
+  
+  if (serviceKey && serviceKey === process.env.SERVICE_SECRET_KEY) {
+    logger.info('Service call authenticated');
+    (req as any).isServiceCall = true;
+    return next(); 
+  }
+  logger.info('Not a service call, continuing to regular auth');
+  next();
 };

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logger } from '../utils/logging';
 
 const CHARACTER_SERVICE_URL = process.env.CHARACTER_SERVICE_URL || 'http://character-service:3001';
 
@@ -13,8 +14,7 @@ export interface NotificationData {
 
 export const notifyCharacterService = async (data: NotificationData): Promise<void> => {
   try {
-    console.info('📨 Notifying Character Service:', data);
-    
+    logger.info('Notifying Character Service:', data);
     const response = await axios.post(
       `${CHARACTER_SERVICE_URL}/api/character/notifications/combat`,
       data,
@@ -29,7 +29,7 @@ export const notifyCharacterService = async (data: NotificationData): Promise<vo
       throw new Error('Character Service notification failed');
     }
   } catch (error: any) {
-    console.error('❌ Failed to notify Character Service:', error.message);
+    logger.error('❌ Failed to notify Character Service:', error.message);
   }
 };
 
