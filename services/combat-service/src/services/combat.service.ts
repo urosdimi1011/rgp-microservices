@@ -69,6 +69,7 @@ export const initiateDuel = async (
   token?: string
 ): Promise<any> => {
   try {
+    checkDuelTimeouts();
     logger.info('Initiating duel', { 
       challengerCharacterId,
       opponentCharacterId,

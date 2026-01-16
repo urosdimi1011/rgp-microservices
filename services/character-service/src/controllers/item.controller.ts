@@ -362,6 +362,7 @@ export const giftItem = async (req: AuthRequest, res: Response) => {
     console.log(`[${new Date().toISOString()}] User ${req.user!.userId} gifted ${parsedQuantity}x item ${parsedItemId} from character ${parsedFromCharacterId} to ${parsedToCharacterId}`);
 
     res.json({
+      success: true,
       message: 'Item gifted successfully',
       from: fromCharacter.name,
       to: toCharacter.name,
