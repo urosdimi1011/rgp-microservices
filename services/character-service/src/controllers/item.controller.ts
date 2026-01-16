@@ -242,7 +242,6 @@ export const giftItem = async (req: AuthRequest, res: Response) => {
   try {
     const { fromCharacterId, toCharacterId, itemId, quantity } = req.body;
 
-    // Validacija
     if (!fromCharacterId || !toCharacterId || !itemId) {
       return res.status(400).json({ 
         error: 'fromCharacterId, toCharacterId, and itemId are required' 

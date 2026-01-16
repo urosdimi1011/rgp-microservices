@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import prisma from "../db/prisma";
 import {
   getCharacterWithItems,
-  updateCharacterHealth,
   transferItemBetweenCharacters,
   getRandomItemFromCharacter,
   syncCharacter,
@@ -200,15 +199,15 @@ const calculateAttackDamage = (character: any): number => {
   logger.info("truuuuuuuuuuuuu",{
     ...character
   });
-  return (character.baseStrength || 0) + (character.baseAgility || 0);
+  return (character.stats.totalStrength || 0) + (character.stats.totalAgility || 0);
 };
 
 const calculateSpellDamage = (character: any): number => {
-  return 2 * (character.baseIntelligence || 0);
+  return 2 * (character.stats.totalIntelligence || 0);
 };
 
 const calculateHealAmount = (character: any): number => {
-  return character.baseFaith || 0;
+  return character.stats.totalFaith || 0;
 };
 
 export const performAttack = async (
@@ -435,49 +434,6 @@ const performAction = async (
     },
   });
 
-  logger.debug('Duel action recorded', { 
-    actionId: action.id,
-    duelId,
-    characterId,
-    actionType,
-    damage,
-    healAmount
-  });
-
-  if (actionType === "HEAL") {
-    if (duel.challengerId === characterId) {
-      await updateCharacterHealth(characterId, newChallengerHealth);
-      logger.debug('Healed challenger', { 
-        characterId,
-        newHealth: newChallengerHealth,
-        healAmount
-      });
-    } else {
-      await updateCharacterHealth(targetCharacterId, newOpponentHealth);
-      logger.debug('Healed opponent', {
-        targetCharacterId,
-        newHealth: newOpponentHealth,
-        healAmount
-      });
-    }
-  } else {
-    if (duel.challengerId === characterId) {
-      await updateCharacterHealth(targetCharacterId, newOpponentHealth);
-      logger.debug('Damaged opponent', { 
-        targetCharacterId,
-        damage,
-        newHealth: newOpponentHealth
-      });
-    } else {
-      await updateCharacterHealth(characterId, newChallengerHealth);
-      logger.debug('Damaged challenger', { 
-        characterId,
-        damage,
-        newHealth: newChallengerHealth
-      });
-    }
-  }
-
   let isFinished = false;
   let winner = undefined;
   let loser = undefined;
@@ -527,13 +483,13 @@ const performAction = async (
             itemId: itemToTransfer.id
           });
           
-          await transferItemBetweenCharacters(loser, winner, itemToTransfer.id);
+          await transferItemBetweenCharacters(loser, winner, itemToTransfer.itemId);
           await notifyCharacterService({
             type: "ITEM_TRANSFER",
             duelId: duelId,
             winnerId: winner,
             loserId: loser,
-            itemId: itemToTransfer.id,
+            itemId: itemToTransfer.itemId,
             timestamp: new Date(),
           });
           

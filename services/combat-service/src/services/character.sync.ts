@@ -281,46 +281,6 @@ export const getCharacterWithItems = async (
     throw new Error(`Character ${characterId} not found: ${error.message}`);
   }
 };
-
-export const updateCharacterHealth = async (
-  characterId: string,
-  newHealth: number
-): Promise<void> => {
-  try {
-    logger.info("Updating character health", {
-      characterId,
-      newHealth,
-      previousHealth: null, // Dodaj ako imaš
-    });
-
-    await axios.put(
-      `${CHARACTER_SERVICE_URL}/api/character/${characterId}/health`,
-      {
-        health: newHealth,
-      },
-      {
-        headers: getAuthHeaders(),
-      }
-    );
-
-    logger.info("Character health updated successfully", {
-      characterId,
-      newHealth,
-      serviceUrl: CHARACTER_SERVICE_URL,
-    });
-
-    // Invalidate cache
-    invalidateCharacterCache(characterId);
-  } catch (error: any) {
-    logger.error("Failed to update character health", {
-      characterId,
-      newHealth,
-      error: error.message,
-      statusCode: error.response?.status,
-    });
-  }
-};
-
 export const transferItemBetweenCharacters = async (
   fromCharacterId: string,
   toCharacterId: string,
